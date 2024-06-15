@@ -10,27 +10,27 @@ Data comes in a couple of CSV files for each currency.
 
 ### Architecture
 
-The solution architecture is depicted in ![this diagram](https://github.com/nicofari/aws-de/blob/06216ab1f3598bfaf81622fcc630ae3b4e9c07e2/docs/Prof%20ai%20aws%20de%20flow.drawio.svg "architecture")
+The solution architecture is depicted in the below diagram: ![this diagram](https://github.com/nicofari/aws-de/blob/06216ab1f3598bfaf81622fcc630ae3b4e9c07e2/docs/Prof%20ai%20aws%20de%20flow.drawio.svg "architecture")
 
-Data in input is uploaded to the following S3 bucket:
+When data are uploaded to the following S3 bucket:
 
 ```buildoutcfg
 s3://profai/aws-de
 ```
 
-An S3 trigger is associated to the bucket, and it launches the 
+An S3 trigger launches the 
 
 #### ```s3-trigger``` lambda.
 
-- Responsibilities
+This function is responsible is to monitor the upload of *both* data files for each currency, to avoid starting ETL when the set isn't complete.
 
-This function's duty is to monitor the upload of data files and, when both files are present, launch the specific Step Functions State Machine.
+When both files are present, the specific Step Functions State Machine Pipeline is started.
 
 - Configuration
 
-Environment variables:
+File names for each currency, and pipeline ARN's are stored in these environment variables of the Lambda:
 
-- MONERO_FILES monero files names
+- MONERO_FILES monero files names (as json array)
 - BITCOIN_FILES bitcoin files names
 - MONERO_PIPELINE_ARN monero step functions state machine arn
 - BITCOIN_PIPELINE_ARN bitcoin step functions state machine arn
@@ -41,7 +41,28 @@ There are two state machines (or ETL pipelines), one for each currency:
 - ```prof-ai-aws-de-bitcoin``` 
 - ```prof-ai-aws-de-monero```
 
-They have the same structure, and call the same three Glue jobs, but with different parameters:
+They have the same structure, shown below:
+![this diagram](https://github.com/nicofari/aws-de/blob/0f5d3b78faa6bc05455749cde4607955a2beabb7/docs/stepfunctions_graph.png "pipeline flow")
+
+The first step is
+- raw_to_silver
+
+In this state price missing data are imputed, and google trend column names are normalized. 
+Data are then converted to parquet format and stored in the ```silver``` bucket.
+
+- silver_to_gold
+
+In this state data are read from silver bucket and joined into one (after applying a median to price values)
+
+- load
+
+In this state data are loaded to a Redshift cluster.
+
+- SNS Publish
+
+A message is send to a SNS Topic to notify interested parties of the completed data loading.
+
+The two pipelines are actually one, the same one duplicated with different Etl job parameters, for the specific data file names.
 
 #### Glue Etl Jobs
 
