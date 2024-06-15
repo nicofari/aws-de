@@ -1,0 +1,83 @@
+{
+	"jobConfig": {
+		"name": "load",
+		"description": "",
+		"role": "arn:aws:iam::745412505519:role/profai-glue-role",
+		"command": "pythonshell",
+		"version": "3.0",
+		"runtime": null,
+		"workerType": null,
+		"numberOfWorkers": null,
+		"maxCapacity": 0.0625,
+		"maxRetries": 0,
+		"timeout": 2880,
+		"maxConcurrentRuns": 1,
+		"security": "none",
+		"scriptName": "load.py",
+		"scriptLocation": "s3://aws-glue-assets-745412505519-eu-central-1/scripts/",
+		"language": "python-3.9",
+		"spark": false,
+		"jobParameters": [
+			{
+				"key": "--JobName",
+				"value": "load",
+				"existing": false
+			},
+			{
+				"key": "--database",
+				"value": "dev",
+				"existing": false
+			},
+			{
+				"key": "--dest_table_name",
+				"value": "public.bitcoin",
+				"existing": false
+			},
+			{
+				"key": "--host",
+				"value": "default-workgroup.745412505519.eu-central-1.redshift-serverless.amazonaws.com",
+				"existing": false
+			},
+			{
+				"key": "--iam_role",
+				"value": "arn:aws:iam::745412505519:role/service-role/AmazonRedshift-CommandsAccessRole-20240607T162243",
+				"existing": false
+			},
+			{
+				"key": "--password",
+				"value": "TestProfAi2024",
+				"existing": false
+			},
+			{
+				"key": "--port",
+				"value": "5439",
+				"existing": false
+			},
+			{
+				"key": "--source_table_name",
+				"value": "s3://kotik-profai/aws-de/gold/bitcoin.parquet",
+				"existing": false
+			},
+			{
+				"key": "--username",
+				"value": "admin",
+				"existing": false
+			}
+		],
+		"tags": [],
+		"jobMode": "DEVELOPER_MODE",
+		"createdOn": "2024-06-12T09:35:43.997Z",
+		"developerMode": true,
+		"connectionsList": [],
+		"temporaryDirectory": "s3://aws-glue-assets-745412505519-eu-central-1/temporary/",
+		"glueHiveMetastore": true,
+		"etlAutoTuning": false,
+		"pythonShellPrebuiltLibraryOption": "analytics",
+		"flexExecution": false,
+		"minFlexWorkers": null,
+		"maintenanceWindow": null,
+		"pythonPath": null
+	},
+	"hasBeenSaved": false,
+	"script": "import redshift_connector\nimport sys\nfrom awsglue.utils import getResolvedOptions\n\nargs = getResolvedOptions(sys.argv,\n                          ['JobName',\n                           'source_table_name',\n                           'dest_table_name',\n                           'host',\n                           'database',\n                           'username',\n                           'password',\n                           'port',\n                           'iam_role'\n                           ])\n             \njob_name = args['JobName']\nsource_table_name = args['source_table_name']\ndest_table_name = args['dest_table_name']\n\nhost = args['host']\ndatabase = args['database']\nusername = args['username']\npassword = args['password']\nport = int(args['port'])\niam_role = args['iam_role']\n\nprint(f\"{job_name}: the source_table_name is: {source_table_name}\")\nprint(f\"{job_name}: the dest_table_name is: {dest_table_name}\")\nprint(f\"{job_name}: the connection string is: {username}@{host}:{port}/{database}\")\n\nconn = redshift_connector.connect(\n     host = host,\n     database = database,\n     port = port,\n     user = username,\n     password = password\n)\n\nconn.autocommit = True\n\nwith conn.cursor() as cursor:\n    cursor.execute(f\"TRUNCATE {dest_table_name}\")\n    cursor.execute(f\"COPY {dest_table_name} FROM '{source_table_name}' iam_role '{iam_role}' FORMAT AS PARQUET;\")\n    "
+}

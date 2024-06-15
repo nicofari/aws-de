@@ -1,0 +1,61 @@
+Comment: A description of my state machine
+StartAt: raw_to_silver
+States:
+  raw_to_silver:
+    Type: Task
+    Resource: arn:aws:states:::glue:startJobRun.sync
+    Parameters:
+      JobName: raw_to_silver
+      Arguments:
+        '--price_file_name': XMR_EUR Kraken Historical Data.csv
+        '--trend_file_name': google_trend_monero.csv
+    Next: silver_to_gold
+    Catch:
+      - ErrorEquals:
+          - States.ALL
+        Next: Fail
+  silver_to_gold:
+    Type: Task
+    Resource: arn:aws:states:::glue:startJobRun.sync
+    Parameters:
+      JobName: silver_to_gold
+      Arguments:
+        '--price_file_name': XMR_EUR Kraken Historical Data.parqet
+        '--trend_file_name': google_trend_monero.parqet
+        '--output_file_name': monero.parquet
+    Catch:
+      - ErrorEquals:
+          - States.ALL
+        Next: Fail
+    Next: Load
+  Load:
+    Type: Task
+    Resource: arn:aws:states:::glue:startJobRun.sync
+    Parameters:
+      JobName: load
+      Arguments:
+        '--source_table_name': s3://kotik-profai/aws-de/gold/monero.parquet
+        '--dest_table_name': public.monero
+        '--host': >-
+          default-workgroup.745412505519.eu-central-1.redshift-serverless.amazonaws.com
+        '--database': dev
+        '--username': admin
+        '--password': TestProfAi2024
+        '--port': '5439'
+        '--iam_role': >-
+          arn:aws:iam::745412505519:role/service-role/AmazonRedshift-CommandsAccessRole-20240607T162243
+    Next: SNS Publish
+    Catch:
+      - ErrorEquals:
+          - States.ALL
+        Next: Fail
+  SNS Publish:
+    Type: Task
+    Resource: arn:aws:states:::sns:publish
+    Parameters:
+      TopicArn: arn:aws:sns:eu-central-1:745412505519:profai-bitcoin
+      Message:
+        message: New monero data available!
+    End: true
+  Fail:
+    Type: Fail

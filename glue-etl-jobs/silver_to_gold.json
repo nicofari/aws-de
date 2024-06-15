@@ -1,0 +1,57 @@
+{
+	"jobConfig": {
+		"name": "silver_to_gold",
+		"description": "",
+		"role": "arn:aws:iam::745412505519:role/service-role/AWSGlueServiceRole",
+		"command": "pythonshell",
+		"version": "3.0",
+		"runtime": null,
+		"workerType": null,
+		"numberOfWorkers": null,
+		"maxCapacity": 0.0625,
+		"maxRetries": 0,
+		"timeout": 2880,
+		"maxConcurrentRuns": 1,
+		"security": "none",
+		"scriptName": "silver_to_gold.py",
+		"scriptLocation": "s3://aws-glue-assets-745412505519-eu-central-1/scripts/",
+		"language": "python-3.9",
+		"spark": false,
+		"jobParameters": [
+			{
+				"key": "--JobName",
+				"value": "bitcoin-raw-to-silver",
+				"existing": false
+			},
+			{
+				"key": "--output_file_name",
+				"value": "bitcoin.parquet",
+				"existing": false
+			},
+			{
+				"key": "--price_file_name",
+				"value": "BTC_EUR_Historical_Data.parqet",
+				"existing": false
+			},
+			{
+				"key": "--trend_file_name",
+				"value": "google_trend_bitcoin.parqet",
+				"existing": false
+			}
+		],
+		"tags": [],
+		"jobMode": "DEVELOPER_MODE",
+		"createdOn": "2024-06-11T20:26:57.461Z",
+		"developerMode": true,
+		"connectionsList": [],
+		"temporaryDirectory": "s3://aws-glue-assets-745412505519-eu-central-1/temporary/",
+		"glueHiveMetastore": true,
+		"etlAutoTuning": false,
+		"pythonShellPrebuiltLibraryOption": "analytics",
+		"flexExecution": false,
+		"minFlexWorkers": null,
+		"maintenanceWindow": null
+	},
+	"hasBeenSaved": false,
+	"script": "import sys\nimport boto3\nfrom awsglue.utils import getResolvedOptions\nimport pandas as pd\nimport awswrangler as wr\nimport os\n\nargs = getResolvedOptions(sys.argv,\n                          ['JobName',\n                           'price_file_name',\n                           'trend_file_name',\n                           'output_file_name'\n                           ])\n             \njob_name = args['JobName']\nprice_file_name = args['price_file_name']\ntrend_file_name = args['trend_file_name']\noutput_file_name = args['output_file_name']\n\nprint(f\"{job_name}: the price_file_name is: {price_file_name}\")\nprint(f\"{job_name}: the trend_file_name is: {trend_file_name}\")\nprint(f\"{job_name}: the output_file_name is: {output_file_name}\")\n\ns3 = boto3.resource('s3')\n\n# FIXME: transform these constants below into parameters\nbucketname = \"kotik-profai\"\nsource = \"aws-de/silver\"\ntarget = \"aws-de/gold\"\n\nbucket = s3.Bucket(bucketname)\n\ndef _get_file_name_without_extension(file_name):\n    return os.path.basename(file_name).split('.')[0]\n\nfor fn in [price_file_name, trend_file_name]:\n    try:\n        obj = s3.Object(bucketname, source + '/' + fn)\n    except Exception as e:\n        print(f\"{job_name}: error get object: {e}\")\n        raise e\n    \n    source_path = f\"s3://{bucketname}/{source}/{fn}\"\n    \n    print(f\"{job_name}: loading file {fn}\")\n\n    target_filename = f\"s3://{bucketname}/{target}/{output_file_name}\"\n    \n    print(f\"{job_name} output_file_name: {target_filename}\")\n    \n    if fn == price_file_name:\n        df_price = wr.s3.read_parquet(path=source_path)\n        # Calculate a moving mean\n        df_price['Price'] = df_price['Price'].rolling(window=5, min_periods=1).mean()\n    else:\n        df_trend = wr.s3.read_parquet(path=source_path)\n\n    print(f\"{job_name}: about to delete {fn}\")\n# TODO uncomment the below line before final delivery    \n#    obj.delete()\n\n# Merge the two datasets\ndf_merge = pd.merge(df_trend, df_price, left_on=\"Week\", right_on=\"Date\")\n# Get rid of duplicated column \"Date\"\ndf_merge = df_merge.drop(axis = 1, columns = ['Date'])\n\nwr.s3.to_parquet(\n    df = df_merge,\n    path = target_filename\n)\n\n\n"
+}
