@@ -116,4 +116,14 @@ with conn.cursor() as cursor:
 
 Each job has a set of parameters for source and destination tables, and for database credentials.
 
+#### Redshift and Quicksight
 
+Once in Redshift, data can be visualized in Quicksight.
+
+Example diagrams below:
+
+Monero:
+![this diagram](https://github.com/nicofari/aws-de/blob/a320495f460264b7124536ccc2848a319d5ffed3/docs/Quicksight_monero.jpg "monero trend diagram")
+
+Bitcoin:
+![this diagram](https://github.com/nicofari/aws-de/blob/a320495f460264b7124536ccc2848a319d5ffed3/docs/bitcoin_quicksight.png "bitcoin trend diagram")
