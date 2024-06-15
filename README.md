@@ -22,7 +22,7 @@ An S3 trigger launches the
 
 #### ```s3-trigger``` lambda.
 
-This function is responsible is to monitor the upload of *both* data files for each currency, to avoid starting ETL when the set isn't complete.
+This function's responsibility is to monitor the upload of *both* data files for each currency, to avoid starting ETL when the set isn't complete.
 
 When both files are present, the specific Step Functions State Machine Pipeline is started.
 
@@ -52,7 +52,7 @@ Data are then converted to parquet format and stored in the ```silver``` bucket.
 
 - silver_to_gold
 
-In this state data are read from silver bucket and joined into one (after applying a median to price values)
+In this state data are read from silver bucket and joined into one (after applying a median to price values) dataframe which is stored into the ```gold``` bucket.
 
 - load
 
@@ -67,7 +67,53 @@ The two pipelines are actually one, the same one duplicated with different Etl j
 #### Glue Etl Jobs
 
 - raw_to_silver
+
+Relevant normalization part is:
+```
+    # Load and (first) transformations
+    if fn == price_file_name:
+        df = pd.read_csv(obj.get()['Body'], parse_dates=['Date'], thousands=',')
+        # Get rid of some columns we are not interested in
+        df = df.drop(axis=1, columns=['Open', 'High', 'Low', 'Vol.', 'Change %'])
+        # Find record with invalid price and fill them with rolling mean
+        df.loc[df['Price'] == -1, 'Price'] = df['Price'].rolling(window=5, min_periods=1).mean()
+    else:
+        df = pd.read_csv(obj.get()['Body'], parse_dates=['Settimana'], thousands=',')
+        # Normalize column names
+        df.columns.values[0] = 'Week'
+        df.columns.values[1] = 'Google_trend'
+```
+
 - silver_to_gold
+
+Relevant transformation code is:
+```
+    if fn == price_file_name:
+        df_price = wr.s3.read_parquet(path=source_path)
+        # Calculate a moving mean
+        df_price['Price'] = df_price['Price'].rolling(window=5, min_periods=1).mean()
+    else:
+        df_trend = wr.s3.read_parquet(path=source_path)
+```
+
 - load
+
+```
+conn = redshift_connector.connect(
+     host = host,
+     database = database,
+     port = port,
+     user = username,
+     password = password
+)
+
+conn.autocommit = True
+
+with conn.cursor() as cursor:
+    cursor.execute(f"TRUNCATE {dest_table_name}")
+    cursor.execute(f"COPY {dest_table_name} FROM '{source_table_name}' iam_role '{iam_role}' FORMAT AS PARQUET;")
+```
+
+Each job has a set of parameters for source and destination tables, and for database credentials.
 
 
