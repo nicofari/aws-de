@@ -26,7 +26,7 @@ This function's responsibility is to monitor the upload of *both* data files for
 
 When both files are present, the specific Step Functions State Machine Pipeline is started.
 
-- Configuration
+#### Configuration
 
 File names for each currency, and pipeline ARN's are stored in these environment variables of the Lambda:
 
@@ -35,24 +35,28 @@ File names for each currency, and pipeline ARN's are stored in these environment
 - MONERO_PIPELINE_ARN monero step functions state machine arn
 - BITCOIN_PIPELINE_ARN bitcoin step functions state machine arn
 
-#### ```State machine```
+#### ETL Pipelines 
 
-There are two state machines (or ETL pipelines), one for each currency:
+Pipelines are implemented leveraging ```AWS Step Functions``` State Machine concept.
+
+There are two state machines, one for each currency:
 - ```prof-ai-aws-de-bitcoin``` 
 - ```prof-ai-aws-de-monero```
 
-They have the same structure, shown below:
+Since the transformations are the same for both currencies, the only difference being file names, pipelines do  the same structure, which is shown below:
 ![this diagram](https://github.com/nicofari/aws-de/blob/0f5d3b78faa6bc05455749cde4607955a2beabb7/docs/stepfunctions_graph.png "pipeline flow")
 
-The first step is
+Different file names are expressed through the use of job parameters in each state.
+
+The first state is
 - raw_to_silver
 
-In this state price missing data are imputed, and google trend column names are normalized. 
+In this step price missing data are imputed, and google trend column names are normalized. 
 Data are then converted to parquet format and stored in the ```silver``` bucket.
 
 - silver_to_gold
 
-In this state data are read from silver bucket and joined into one (after applying a median to price values) dataframe which is stored into the ```gold``` bucket.
+In this phase data are read from silver bucket and joined into one (after applying a median to price values) dataframe which is stored into the ```gold``` bucket.
 
 - load
 
@@ -60,11 +64,13 @@ In this state data are loaded to a Redshift cluster.
 
 - SNS Publish
 
-A message is send to a SNS Topic to notify interested parties of the completed data loading.
+A message is send to a ```SNS Topic``` to notify interested parties of the completed data loading.
 
 The two pipelines are actually one, the same one duplicated with different Etl job parameters, for the specific data file names.
 
 #### Glue Etl Jobs
+
+ETL Jobs are implemented in ```AWS Glue``` as Python procedures.
 
 - raw_to_silver
 
