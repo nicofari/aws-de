@@ -43,10 +43,13 @@ There are two state machines, one for each currency:
 - ```prof-ai-aws-de-bitcoin``` 
 - ```prof-ai-aws-de-monero```
 
-Since the transformations are the same for both currencies, the only difference being file names, pipelines do  the same structure, which is shown below:
+Since the transformations are the same for both currencies, the only difference being file names, pipelines do have the same structure, which is shown below:
+
 ![this diagram](https://github.com/nicofari/aws-de/blob/0f5d3b78faa6bc05455749cde4607955a2beabb7/docs/stepfunctions_graph.png "pipeline flow")
 
 Different file names are expressed through the use of job parameters in each state.
+
+#### The Pipeline states
 
 The first state is
 - raw_to_silver
