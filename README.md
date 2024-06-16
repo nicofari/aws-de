@@ -69,8 +69,6 @@ In this state data are loaded to a Redshift cluster.
 
 A message is send to a ```SNS Topic``` to notify interested parties of the completed data loading.
 
-The two pipelines are actually one, the same one duplicated with different Etl job parameters, for the specific data file names.
-
 #### Glue Etl Jobs
 
 ETL Jobs are implemented in ```AWS Glue``` as Python procedures.
